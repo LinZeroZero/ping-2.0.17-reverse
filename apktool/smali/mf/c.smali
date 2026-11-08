@@ -81,7 +81,7 @@
     iput-object p1, p0, Lmf/c;->a:Ljava/lang/String;
 
     .line 4
-    const-string p1, "https://hamed.ninja/ping/privacy.html"
+    const-string p1, "file:///android_asset/privacy_zh.html"
 
     iput-object p1, p0, Lmf/c;->b:Ljava/lang/String;
 

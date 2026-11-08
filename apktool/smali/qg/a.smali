@@ -1194,6 +1194,8 @@
     .line 544
     invoke-virtual {v0, v2}, Landroid/webkit/WebSettings;->setMixedContentMode(I)V
 
+    invoke-virtual {v0, v2}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
+
     .line 545
     .line 546
     .line 547

@@ -44,7 +44,7 @@
 
     .line 12
     .line 13
-    const-string v0, "https://hamed.ninja/ping/privacy.html"
+    const-string v0, "file:///android_asset/privacy_zh.html"
 
     .line 14
     .line 15

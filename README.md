@@ -338,3 +338,85 @@ invoke-interface {v0, v1, v2}, SharedPreferences.getString
 - 删除 `shared_prefs/com.lipinic.ping.xml`（模拟全新安装）→ 启动直接中文界面；
 - 语言列表 8 项，末尾「简体中文」；
 - 进程存活，无崩溃，横幅仍无请求。
+
+## 十三、隐私政策中文化（v6）
+
+### 1. 先纠正一个误解：政策正文不在 APK 里
+
+「隐私政策」不是本地文本，而是 WebView 打开的**远程英文页** `https://hamed.ninja/ping/privacy.html`
+（AdMob 标准隐私模板，约 5.5K 字符、14 段）。所以在 `values-zh-rCN` 里翻译 277 条也翻不到它——
+那条 `privacy_policy` 只是菜单标题。
+
+URL 在 smali 里有**两处**硬编码：
+
+| 位置 | 是否生效 |
+|---|---|
+| `smali/mf/c.smali` 构造函数 `const-string p1, "https://..."` | **生效**：`Lmf/c` 即 `WebviewRoute(title,url)` |
+| `smali/com/lipinic/ping/activity/PrivacyWebViewActivity.smali` | 死代码：全工程无 `startActivity` 调用方，仅 manifest 注册 |
+
+实际渲染链：
+
+```
+Menu(xg/e) → a0/n 造 Lmf/c("隐私政策") → k8/d → Llf/e(title,url) → yj/b → Lxg/e;->p(...) → WebView
+```
+
+### 2. 关键坑：targetSdk 36 下 file:// 默认被关
+
+`apktool.yml` 里 `targetSdkVersion: 36`，而 Android 11 起对 targetSdk ≥ 30 的应用，
+WebView 的 `setAllowFileAccess` **默认 false**。全 App 唯一的 WebView 构造点在
+`smali/qg/a.smali`（R8 合成 lambda 类 `Lqg/a;` 的一个分支），只设了
+`setJavaScriptEnabled / setDomStorageEnabled / setMixedContentMode(1)`，**没设 file access**。
+
+所以只把 URL 改成 `file:///android_asset/...` 会白屏，必须补一行：
+
+```smali
+invoke-virtual {v0, v2}, Landroid/webkit/WebSettings;->setAllowFileAccess(Z)V
+```
+
+插在 `setMixedContentMode` 之后、`loadUrl` 之前。该处 `v0` 已是 `WebSettings`、`v2` 已是
+`const/4 0x1`，不新增寄存器、不用改 `.locals`。
+
+### 3. 改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `assets/privacy_zh.html` | 新增，5772 B，14 段中文，CSS 全内联，`prefers-color-scheme` 深浅色自适应 |
+| `smali/mf/c.smali` | URL → `file:///android_asset/privacy_zh.html` |
+| `smali/qg/a.smali` | +1 行 `setAllowFileAccess(true)` |
+| `smali/com/lipinic/ping/activity/PrivacyWebViewActivity.smali` | 同一 URL（死代码，保持一致） |
+
+译文策略：条款零增删；第三方服务名（Google Play Services / AdMob / Firebase Analytics）保留英文并括注；
+人名与邮箱保留原文；页末加「本页为中文译文，仅供参考，若译文与英文原文存在歧义或冲突，以英文原文为准」
++ 英文原文链接。
+
+### 4. 回编译与签名
+
+```bash
+java -jar /root/tools/apktool.jar b "$D" -o out.apk --aapt /root/tools/sdk/build-tools/aapt2
+/root/tools/sdk/build-tools/zipalign -p -f 4 out.apk aligned.apk
+# 再回 App 内用 apk_reverse_sign(debug) 签名
+```
+
+### 5. 验证口径（全部通过）
+
+- 菜单「隐私政策」→ 页面正常打开，非白屏；
+- OCR 与 WebView 无障碍树都读到中文正文（后者直接给出
+  「Cookie 是包含少量数据的文件…」「Google Play 服务（Google Play Services）」等文本）；
+- 深色模式：像素采样中位亮度 **18**（浅色模式为 255），`prefers-color-scheme` 生效；
+- 页尾读到「本页为中文译文，仅供参考…」与「英文原文：hamed.ninja/ping/privacy.html」；
+- `logcat` 无 `ERR_ACCESS_DENIED` / `net::ERR_*`。
+
+### 6. 产物
+
+`ping_2.0.17_cn_noads_zh.apk`，7,548,774 B，
+sha256 `c7eb818e062942a7e869d26e77cb1d14e467e7a7d5093edaadfd7a5fecad0fbe`，debug 签名。
+
+旧产物（不含中文隐私页）已移至
+`/storage/emulated/0/AI/.backup/ping_2.0.17_cn_noads_before_zh.apk`。
+
+### 7. 注意
+
+- 签名与官方不同，**必须卸载重装**（会清掉 App 数据，含 ping 历史）；
+- 打开 file access 的副作用：全 App 只有这一个 WebView，且只加载固定本地页，风险可控；
+- 若 WebView 策略再收紧导致白屏，兜底方案是把 URL 换成
+  `data:text/html;charset=utf-8;base64,...`（不动 WebView 设置，但每次改译文要重新生成整串）。
