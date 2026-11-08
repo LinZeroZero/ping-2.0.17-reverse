@@ -1,0 +1,14 @@
+.class public interface abstract Lna/j;
+.super Ljava/lang/Object;
+.source "r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490"
+
+# interfaces
+.implements Landroid/os/IInterface;
+
+
+# virtual methods
+.method public abstract W1(Lcom/google/android/gms/common/api/Status;)V
+.end method
+
+.method public abstract n2(Lcom/google/android/gms/common/api/Status;)V
+.end method

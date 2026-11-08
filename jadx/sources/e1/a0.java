@@ -1,0 +1,25 @@
+package e1;
+
+import com.google.android.gms.internal.ads.o8;
+import d1.s2;
+
+/* compiled from: r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490 */
+/* loaded from: classes.dex */
+public final class a0 extends j0 {
+
+    /* renamed from: c, reason: collision with root package name */
+    public static final a0 f10593c = new a0(0, 0, 3);
+
+    @Override // e1.j0
+    public final void a(androidx.datastore.preferences.protobuf.l lVar, d1.c cVar, s2 s2Var, o8 o8Var, k0 k0Var) {
+        if (s2Var.f10005n != 0) {
+            d1.w.a("Cannot reset when inserting");
+        }
+        s2Var.G();
+        s2Var.f10011t = 0;
+        s2Var.f10012u = s2Var.o() - s2Var.f10000h;
+        s2Var.f10001i = 0;
+        s2Var.j = 0;
+        s2Var.f10006o = 0;
+    }
+}

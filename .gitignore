@@ -1,0 +1,6 @@
+# apktool 回编中间产物（aapt2 每次 build 都会重建，属产物不属源码）
+apktool/build/
+
+# 系统/编辑器杂物
+Thumbs.db
+.DS_Store

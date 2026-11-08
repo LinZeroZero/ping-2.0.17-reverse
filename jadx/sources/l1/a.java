@@ -1,0 +1,17 @@
+package l1;
+
+import java.util.concurrent.atomic.AtomicInteger;
+
+/* compiled from: r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490 */
+/* loaded from: classes.dex */
+public final class a extends AtomicInteger {
+    @Override // java.lang.Number
+    public final byte byteValue() {
+        return (byte) super.intValue();
+    }
+
+    @Override // java.lang.Number
+    public final short shortValue() {
+        return (short) super.intValue();
+    }
+}

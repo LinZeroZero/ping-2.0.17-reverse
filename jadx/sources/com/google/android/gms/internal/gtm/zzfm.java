@@ -1,0 +1,11 @@
+package com.google.android.gms.internal.gtm;
+
+/* compiled from: r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490 */
+/* loaded from: classes.dex */
+public abstract class zzfm {
+    private static volatile zzfn zza = new zzfo();
+
+    public static zzfn zza() {
+        return zza;
+    }
+}

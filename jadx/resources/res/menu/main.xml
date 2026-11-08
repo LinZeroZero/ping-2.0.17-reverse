@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_no_ads"
+        android:title="@string/remove_ads"/>
+    <item
+        android:id="@+id/action_privacy_policy"
+        android:title="@string/privacy_policy"/>
+    <item
+        android:id="@+id/action_feedback"
+        android:title="@string/feedback_bug_report"/>
+    <item
+        android:id="@+id/action_reset_setting"
+        android:title="@string/reset_setting"/>
+</menu>

@@ -1,0 +1,72 @@
+.class public final Le1/b0;
+.super Le1/j0;
+.source "r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490"
+
+
+# static fields
+.field public static final c:Le1/b0;
+
+
+# direct methods
+.method static constructor <clinit>()V
+    .locals 3
+
+    .line 1
+    new-instance v0, Le1/b0;
+
+    .line 2
+    .line 3
+    const/4 v1, 0x0
+
+    .line 4
+    const/4 v2, 0x1
+
+    .line 5
+    invoke-direct {v0, v1, v2, v2}, Le1/j0;-><init>(III)V
+
+    .line 6
+    .line 7
+    .line 8
+    sput-object v0, Le1/b0;->c:Le1/b0;
+
+    .line 9
+    .line 10
+    return-void
+.end method
+
+
+# virtual methods
+.method public final a(Landroidx/datastore/preferences/protobuf/l;Ld1/c;Ld1/s2;Lcom/google/android/gms/internal/ads/o8;Le1/k0;)V
+    .locals 0
+
+    .line 1
+    const/4 p2, 0x0
+
+    .line 2
+    invoke-virtual {p1, p2}, Landroidx/datastore/preferences/protobuf/l;->e(I)Ljava/lang/Object;
+
+    .line 3
+    .line 4
+    .line 5
+    move-result-object p1
+
+    .line 6
+    check-cast p1, Lei/a;
+
+    .line 7
+    .line 8
+    iget-object p2, p4, Lcom/google/android/gms/internal/ads/o8;->h:Ljava/lang/Object;
+
+    .line 9
+    .line 10
+    check-cast p2, Lf1/e;
+
+    .line 11
+    .line 12
+    invoke-virtual {p2, p1}, Lf1/e;->b(Ljava/lang/Object;)V
+
+    .line 13
+    .line 14
+    .line 15
+    return-void
+.end method

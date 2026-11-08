@@ -1,0 +1,15 @@
+package p7;
+
+import android.webkit.WebView;
+import org.chromium.support_lib_boundary.StaticsBoundaryInterface;
+import org.chromium.support_lib_boundary.WebViewProviderBoundaryInterface;
+
+/* compiled from: r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490 */
+/* loaded from: classes.dex */
+public interface o {
+    WebViewProviderBoundaryInterface createWebView(WebView webView);
+
+    String[] e();
+
+    StaticsBoundaryInterface getStatics();
+}

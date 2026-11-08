@@ -1,0 +1,15 @@
+package com.google.android.gms.internal.ads;
+
+/* compiled from: r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490 */
+/* loaded from: classes.dex */
+public interface a5 {
+
+    /* renamed from: d, reason: collision with root package name */
+    public static final d4 f2487d = new d4(21);
+
+    int a(ci1 ci1Var);
+
+    b5 d(ci1 ci1Var);
+
+    boolean f(ci1 ci1Var);
+}

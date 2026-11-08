@@ -1,0 +1,20 @@
+.class public interface abstract Lp2/t0;
+.super Ljava/lang/Object;
+.source "r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490"
+
+
+# virtual methods
+.method public abstract a(Lp2/r;Ljava/util/List;I)I
+.end method
+
+.method public abstract d(Lp2/r;Ljava/util/List;I)I
+.end method
+
+.method public abstract f(Lp2/r;Ljava/util/List;I)I
+.end method
+
+.method public abstract h(Lp2/v0;Ljava/util/List;J)Lp2/u0;
+.end method
+
+.method public abstract i(Lp2/r;Ljava/util/List;I)I
+.end method

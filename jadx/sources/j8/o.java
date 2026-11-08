@@ -1,0 +1,11 @@
+package j8;
+
+import java.io.Closeable;
+
+/* compiled from: r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490 */
+/* loaded from: classes.dex */
+public abstract class o implements Closeable {
+    public abstract yj.b d();
+
+    public abstract wj.i h();
+}

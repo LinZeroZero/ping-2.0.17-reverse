@@ -1,0 +1,388 @@
+package p;
+
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Rect;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ListAdapter;
+import android.widget.ListView;
+import com.lipinic.ping.R;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+
+/* compiled from: r8-map-id-bce87255d028c36b034213e1bb75f613ddc7566cd7d5479f86065d5312042490 */
+/* loaded from: classes.dex */
+public class s1 extends ListView {
+    public int A;
+    public int B;
+    public int C;
+    public int D;
+    public int E;
+    public q1 F;
+    public boolean G;
+    public final boolean H;
+    public boolean I;
+    public z4.d J;
+    public ac.f K;
+
+    /* renamed from: z, reason: collision with root package name */
+    public final Rect f15220z;
+
+    public s1(Context context, boolean z10) {
+        super(context, null, R.attr.dropDownListViewStyle);
+        this.f15220z = new Rect();
+        this.A = 0;
+        this.B = 0;
+        this.C = 0;
+        this.D = 0;
+        this.H = z10;
+        setCacheColorHint(0);
+    }
+
+    public final int a(int i10, int i11) {
+        int listPaddingTop = getListPaddingTop();
+        int listPaddingBottom = getListPaddingBottom();
+        int dividerHeight = getDividerHeight();
+        Drawable divider = getDivider();
+        ListAdapter adapter = getAdapter();
+        if (adapter == null) {
+            return listPaddingTop + listPaddingBottom;
+        }
+        int measuredHeight = listPaddingTop + listPaddingBottom;
+        if (dividerHeight <= 0 || divider == null) {
+            dividerHeight = 0;
+        }
+        int count = adapter.getCount();
+        int i12 = 0;
+        View view = null;
+        for (int i13 = 0; i13 < count; i13++) {
+            int itemViewType = adapter.getItemViewType(i13);
+            if (itemViewType != i12) {
+                view = null;
+                i12 = itemViewType;
+            }
+            view = adapter.getView(i13, view, this);
+            ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
+            if (layoutParams == null) {
+                layoutParams = generateDefaultLayoutParams();
+                view.setLayoutParams(layoutParams);
+            }
+            int i14 = layoutParams.height;
+            view.measure(i10, i14 > 0 ? View.MeasureSpec.makeMeasureSpec(i14, 1073741824) : View.MeasureSpec.makeMeasureSpec(0, 0));
+            view.forceLayout();
+            if (i13 > 0) {
+                measuredHeight += dividerHeight;
+            }
+            measuredHeight += view.getMeasuredHeight();
+            if (measuredHeight >= i11) {
+                return i11;
+            }
+        }
+        return measuredHeight;
+    }
+
+    /* JADX WARN: Removed duplicated region for block: B:82:0x014c  */
+    /* JADX WARN: Removed duplicated region for block: B:84:0x0162  */
+    /* JADX WARN: Removed duplicated region for block: B:86:0x0167  */
+    /* JADX WARN: Removed duplicated region for block: B:90:0x017d  */
+    /* JADX WARN: Removed duplicated region for block: B:9:0x0015  */
+    /*
+        Code decompiled incorrectly, please refer to instructions dump.
+    */
+    public final boolean b(MotionEvent motionEvent, int i10) throws IllegalAccessException, IllegalArgumentException {
+        boolean z10;
+        boolean zA;
+        View childAt;
+        View childAt2;
+        int actionMasked = motionEvent.getActionMasked();
+        boolean z11 = false;
+        if (actionMasked == 1) {
+            z10 = false;
+        } else {
+            if (actionMasked != 2) {
+                z10 = actionMasked != 3;
+                if (z10 || z11) {
+                    this.I = false;
+                    setPressed(false);
+                    drawableStateChanged();
+                    childAt2 = getChildAt(this.E - getFirstVisiblePosition());
+                    if (childAt2 != null) {
+                        childAt2.setPressed(false);
+                    }
+                }
+                if (z10) {
+                    z4.d dVar = this.J;
+                    if (dVar != null) {
+                        if (dVar.O) {
+                            dVar.f();
+                        }
+                        dVar.O = false;
+                    }
+                } else {
+                    if (this.J == null) {
+                        this.J = new z4.d(this);
+                    }
+                    z4.d dVar2 = this.J;
+                    boolean z12 = dVar2.O;
+                    dVar2.O = true;
+                    dVar2.onTouch(this, motionEvent);
+                }
+                return z10;
+            }
+            z10 = true;
+        }
+        int iFindPointerIndex = motionEvent.findPointerIndex(i10);
+        if (iFindPointerIndex >= 0) {
+            int x8 = (int) motionEvent.getX(iFindPointerIndex);
+            int y4 = (int) motionEvent.getY(iFindPointerIndex);
+            int iPointToPosition = pointToPosition(x8, y4);
+            if (iPointToPosition == -1) {
+                z11 = true;
+            } else {
+                View childAt3 = getChildAt(iPointToPosition - getFirstVisiblePosition());
+                float f10 = x8;
+                float f11 = y4;
+                this.I = true;
+                int i11 = Build.VERSION.SDK_INT;
+                n1.a(this, f10, f11);
+                if (!isPressed()) {
+                    setPressed(true);
+                }
+                layoutChildren();
+                int i12 = this.E;
+                if (i12 != -1 && (childAt = getChildAt(i12 - getFirstVisiblePosition())) != null && childAt != childAt3 && childAt.isPressed()) {
+                    childAt.setPressed(false);
+                }
+                this.E = iPointToPosition;
+                n1.a(childAt3, f10 - childAt3.getLeft(), f11 - childAt3.getTop());
+                if (!childAt3.isPressed()) {
+                    childAt3.setPressed(true);
+                }
+                Drawable selector = getSelector();
+                boolean z13 = (selector == null || iPointToPosition == -1) ? false : true;
+                if (z13) {
+                    selector.setVisible(false, false);
+                }
+                int left = childAt3.getLeft();
+                int top = childAt3.getTop();
+                int right = childAt3.getRight();
+                int bottom = childAt3.getBottom();
+                Rect rect = this.f15220z;
+                rect.set(left, top, right, bottom);
+                rect.left -= this.A;
+                rect.top -= this.B;
+                rect.right += this.C;
+                rect.bottom += this.D;
+                if (i11 >= 33) {
+                    zA = p1.a(this);
+                } else {
+                    Field field = r1.f15218a;
+                    if (field != null) {
+                        try {
+                            zA = field.getBoolean(this);
+                        } catch (IllegalAccessException e10) {
+                            e10.printStackTrace();
+                        }
+                    } else {
+                        zA = false;
+                    }
+                }
+                if (childAt3.isEnabled() != zA) {
+                    boolean z14 = !zA;
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        p1.b(this, z14);
+                    } else {
+                        Field field2 = r1.f15218a;
+                        if (field2 != null) {
+                            try {
+                                field2.set(this, Boolean.valueOf(z14));
+                            } catch (IllegalAccessException e11) {
+                                e11.printStackTrace();
+                            }
+                        }
+                    }
+                    if (iPointToPosition != -1) {
+                        refreshDrawableState();
+                    }
+                }
+                if (z13) {
+                    float fExactCenterX = rect.exactCenterX();
+                    float fExactCenterY = rect.exactCenterY();
+                    selector.setVisible(getVisibility() == 0, false);
+                    selector.setHotspot(fExactCenterX, fExactCenterY);
+                }
+                Drawable selector2 = getSelector();
+                if (selector2 != null && iPointToPosition != -1) {
+                    selector2.setHotspot(f10, f11);
+                }
+                q1 q1Var = this.F;
+                if (q1Var != null) {
+                    q1Var.A = false;
+                }
+                refreshDrawableState();
+                if (actionMasked == 1) {
+                    performItemClick(childAt3, iPointToPosition, getItemIdAtPosition(iPointToPosition));
+                }
+                z10 = true;
+                z11 = false;
+            }
+        }
+        if (z10) {
+            this.I = false;
+            setPressed(false);
+            drawableStateChanged();
+            childAt2 = getChildAt(this.E - getFirstVisiblePosition());
+            if (childAt2 != null) {
+            }
+        }
+        if (z10) {
+        }
+        return z10;
+    }
+
+    @Override // android.widget.ListView, android.widget.AbsListView, android.view.ViewGroup, android.view.View
+    public final void dispatchDraw(Canvas canvas) {
+        Drawable selector;
+        Rect rect = this.f15220z;
+        if (!rect.isEmpty() && (selector = getSelector()) != null) {
+            selector.setBounds(rect);
+            selector.draw(canvas);
+        }
+        super.dispatchDraw(canvas);
+    }
+
+    @Override // android.widget.AbsListView, android.view.ViewGroup, android.view.View
+    public final void drawableStateChanged() {
+        if (this.K != null) {
+            return;
+        }
+        super.drawableStateChanged();
+        q1 q1Var = this.F;
+        if (q1Var != null) {
+            q1Var.A = true;
+        }
+        Drawable selector = getSelector();
+        if (selector != null && this.I && isPressed()) {
+            selector.setState(getDrawableState());
+        }
+    }
+
+    @Override // android.view.ViewGroup, android.view.View
+    public final boolean hasFocus() {
+        return this.H || super.hasFocus();
+    }
+
+    @Override // android.view.View
+    public final boolean hasWindowFocus() {
+        return this.H || super.hasWindowFocus();
+    }
+
+    @Override // android.view.View
+    public final boolean isFocused() {
+        return this.H || super.isFocused();
+    }
+
+    @Override // android.view.View
+    public final boolean isInTouchMode() {
+        return (this.H && this.G) || super.isInTouchMode();
+    }
+
+    @Override // android.widget.ListView, android.widget.AbsListView, android.widget.AdapterView, android.view.ViewGroup, android.view.View
+    public final void onDetachedFromWindow() {
+        this.K = null;
+        super.onDetachedFromWindow();
+    }
+
+    @Override // android.view.View
+    public boolean onHoverEvent(MotionEvent motionEvent) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        int i10 = Build.VERSION.SDK_INT;
+        if (i10 < 26) {
+            return super.onHoverEvent(motionEvent);
+        }
+        int actionMasked = motionEvent.getActionMasked();
+        int i11 = 9;
+        if (actionMasked == 10 && this.K == null) {
+            ac.f fVar = new ac.f(i11, this);
+            this.K = fVar;
+            post(fVar);
+        }
+        boolean zOnHoverEvent = super.onHoverEvent(motionEvent);
+        if (actionMasked != 9 && actionMasked != 7) {
+            setSelection(-1);
+            return zOnHoverEvent;
+        }
+        int iPointToPosition = pointToPosition((int) motionEvent.getX(), (int) motionEvent.getY());
+        if (iPointToPosition != -1 && iPointToPosition != getSelectedItemPosition()) {
+            View childAt = getChildAt(iPointToPosition - getFirstVisiblePosition());
+            if (childAt.isEnabled()) {
+                requestFocus();
+                if (i10 < 30 || !o1.f15200d) {
+                    setSelectionFromTop(iPointToPosition, childAt.getTop() - getTop());
+                } else {
+                    try {
+                        o1.f15197a.invoke(this, Integer.valueOf(iPointToPosition), childAt, Boolean.FALSE, -1, -1);
+                        o1.f15198b.invoke(this, Integer.valueOf(iPointToPosition));
+                        o1.f15199c.invoke(this, Integer.valueOf(iPointToPosition));
+                    } catch (IllegalAccessException e10) {
+                        e10.printStackTrace();
+                    } catch (InvocationTargetException e11) {
+                        e11.printStackTrace();
+                    }
+                }
+            }
+            Drawable selector = getSelector();
+            if (selector != null && this.I && isPressed()) {
+                selector.setState(getDrawableState());
+            }
+        }
+        return zOnHoverEvent;
+    }
+
+    @Override // android.widget.AbsListView, android.view.View
+    public final boolean onTouchEvent(MotionEvent motionEvent) {
+        if (motionEvent.getAction() == 0) {
+            this.E = pointToPosition((int) motionEvent.getX(), (int) motionEvent.getY());
+        }
+        ac.f fVar = this.K;
+        if (fVar != null) {
+            s1 s1Var = (s1) fVar.A;
+            s1Var.K = null;
+            s1Var.removeCallbacks(fVar);
+        }
+        return super.onTouchEvent(motionEvent);
+    }
+
+    public void setListSelectionHidden(boolean z10) {
+        this.G = z10;
+    }
+
+    @Override // android.widget.AbsListView
+    public void setSelector(Drawable drawable) {
+        q1 q1Var = null;
+        if (drawable != null) {
+            q1 q1Var2 = new q1();
+            Drawable drawable2 = q1Var2.f15214z;
+            if (drawable2 != null) {
+                drawable2.setCallback(null);
+            }
+            q1Var2.f15214z = drawable;
+            drawable.setCallback(q1Var2);
+            q1Var2.A = true;
+            q1Var = q1Var2;
+        }
+        this.F = q1Var;
+        super.setSelector(q1Var);
+        Rect rect = new Rect();
+        if (drawable != null) {
+            drawable.getPadding(rect);
+        }
+        this.A = rect.left;
+        this.B = rect.top;
+        this.C = rect.right;
+        this.D = rect.bottom;
+    }
+}
