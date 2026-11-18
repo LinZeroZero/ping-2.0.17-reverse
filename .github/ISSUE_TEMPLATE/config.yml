@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 上游应用自身的问题
+    url: https://github.com/LinZeroZero/ping-2.0.17-reverse/blob/main/NOTICE.md
+    about: 本仓库是未获授权的逆向研究工程；上游 bug 请反馈原作者，这里不代发

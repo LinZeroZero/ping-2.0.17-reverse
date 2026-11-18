@@ -1,0 +1,12 @@
+# Dependabot：本项目没有语言包管理器（构建靠 apktool + aapt2），
+# 唯一需要跟随上游的是 GitHub Actions 的 action 版本。
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies

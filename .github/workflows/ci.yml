@@ -1,0 +1,134 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # 必过检查：不依赖任何敏感数据，拉 PR 就会跑
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell 语法
+        run: sh -n scripts/build.sh
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning scripts/build.sh
+
+      - name: YAML 语法
+        run: |
+          python3 - <<'PY'
+          import glob, sys, yaml
+          bad = 0
+          for f in sorted(glob.glob('.github/**/*.yml', recursive=True)):
+              try:
+                  yaml.safe_load(open(f, encoding='utf-8'))
+                  print('ok  ', f)
+              except Exception as e:
+                  bad = 1
+                  print('FAIL', f, e)
+          sys.exit(bad)
+          PY
+
+      - name: 补丁集完整性
+        run: |
+          set -u
+          n=$(find patches -type f | wc -l)
+          echo "patches 文件数: $n"
+          [ "$n" -ge 17 ] || { echo "补丁数少于预期（期望 >=17）"; exit 1; }
+          if find patches -type f -empty | grep -q .; then
+            echo "存在空文件："; find patches -type f -empty; exit 1
+          fi
+          if find patches -type f \( -name '*.apk' -o -name '*.dex' -o -name '*.arsc' -o -name '*.so' \) | grep -q .; then
+            echo "patches/ 里不允许出现二进制产物"; exit 1
+          fi
+          for f in patches/AndroidManifest.xml \
+                   patches/smali/wg/a.smali \
+                   patches/smali/p7/j.smali \
+                   patches/smali/com/lipinic/ping/util/SystemLocale.smali \
+                   patches/res/values/public.xml; do
+            [ -f "$f" ] || { echo "缺少关键补丁: $f"; exit 1; }
+          done
+          echo "补丁集检查通过"
+
+      - name: README 相对链接
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          text = open('README.md', encoding='utf-8').read()
+          bad = []
+          for m in re.finditer(r'\]\(([^)#]+\.md)\)', text):
+              p = m.group(1)
+              if p.startswith('http'):
+                  continue
+              if not os.path.exists(p):
+                  bad.append(p)
+          if bad:
+              print('失效链接:', bad)
+              sys.exit(1)
+          print('README 链接检查通过')
+          PY
+
+  # 可选：人工触发且配了 SOURCE_APK_BASE64 时，端到端跑一次构建并比对 dex
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 检查必要输入
+        env:
+          APK_B64: ${{ secrets.SOURCE_APK_BASE64 }}
+        run: |
+          if [ -z "${APK_B64:-}" ]; then
+            echo "::warning::未配置 SOURCE_APK_BASE64（源 APK 涉版权，不入库），跳过构建"
+            exit 1
+          fi
+          mkdir -p build
+          printf '%s' "$APK_B64" | base64 -d > build/src.apk
+          ls -l build/src.apk
+
+      - name: 准备 apktool
+        run: curl -sSfL -o apktool_3.0.1.jar https://github.com/iBotPeaches/Apktool/releases/download/v3.0.1/apktool_3.0.1.jar
+
+      - name: 定位 Android build-tools
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* 2>/dev/null | sort -V | tail -1)
+          echo "build-tools: $BT"
+          echo "$BT" >> "$GITHUB_PATH"
+
+      - name: 构建（不签名）
+        run: sh scripts/build.sh build/src.apk aapt2 build/out
+
+      - name: 校验 dex 指纹
+        run: |
+          cd build/out
+          unzip -o -q aligned.apk classes.dex classes2.dex
+          sha256sum classes.dex classes2.dex
+          # mod-9 成品中的 dex 指纹（见 CHANGELOG / docs）
+          echo "86340a5c2ed3da18017288123acfbff19e881e8ec3ea0c0f5cdb8a196a24d752  classes.dex"  > /tmp/want
+          echo "3ab9399343184ca26f9da25260067f65d6221c4987349e3f4bdd80ef59cc4a34  classes2.dex" >> /tmp/want
+          sha256sum -c /tmp/want
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ping-mod-unsigned
+          path: build/out/aligned.apk
+          if-no-files-found: warn

@@ -1,0 +1,13 @@
+# 二进制文件一律不做文本/换行转换，否则 APK、dex、resources.arsc 会被改写损坏
+*.apk    binary
+*.dex    binary
+*.arsc   binary
+*.so     binary
+*.jar    binary
+*.png    binary
+*.webp   binary
+*.jpg    binary
+*.ttf    binary
+*.otf    binary
+*.proto  binary
+*.prof   binary

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  仅新增一条语言名，不携带原 values/strings.xml 中的任何 Firebase / Google 配置常量。
+  aapt2 会把 res/values/ 下的多个 xml 合并，string/chinese 是新名字，不会与 base 冲突。
+-->
+<resources>
+    <string name="chinese">简体中文</string>
+</resources>
