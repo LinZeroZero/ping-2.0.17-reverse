@@ -97,7 +97,7 @@ static i64 ping_once(u32 addr_be, int timeout_ms)
     u8 pkt[64];
     int paylen = 56; /* 8 字节头 + 56 字节载荷 = 64，和 App 现在的默认 packet size 一致 */
     int i;
-    for (i = 0; i < sizeof(pkt); i++)
+    for (i = 0; i < (int)sizeof(pkt); i++)
         pkt[i] = 0;
     pkt[0] = ICMP_ECHO_;
     pkt[1] = 0;
@@ -145,7 +145,8 @@ static i64 ping_once(u32 addr_be, int timeout_ms)
     int ttl = 0;
     if (msg.controllen >= sizeof(struct cmsghdr_)) {
         struct cmsghdr_ *c = (struct cmsghdr_ *)ctl;
-        if (c->level == IPPROTO_IP_ && c->type == IP_TTL_)
+        if (c->len >= sizeof(struct cmsghdr_) + 1 &&
+            c->level == IPPROTO_IP_ && c->type == IP_TTL_)
             ttl = (int)ctl[sizeof(struct cmsghdr_)];
     }
     int seq = ((int)buf[6] << 8) | buf[7];
@@ -160,6 +161,21 @@ static i64 ping_once(u32 addr_be, int timeout_ms)
  * 常驻版本降到 3 个（sendto/recvmsg/clock_gettime*2），代价是换 host 时要重开。
  * 这也是 App 里实际要用的形态：host 不变就一直复用同一个 fd。
  */
+/* 单飞锁。Bridge.pingWarm 可能被多线程调用，而 fd / seq 是共享状态：
+ * 两个线程同时 send/recv 会互收对方的回复。用 GCC 内建原子（不依赖 pthread，
+ * -nostdlib 下也可用）；拿不到锁直接返回 -1，让调用方回退 exec。 */
+static volatile int g_busy = 0;
+
+static int lock_try(void)
+{
+    return __atomic_test_and_set(&g_busy, __ATOMIC_ACQUIRE) ? 0 : 1;
+}
+
+static void lock_rel(void)
+{
+    __atomic_clear(&g_busy, __ATOMIC_RELEASE);
+}
+
 static int g_fd = -1;
 static u32 g_addr = 0;
 static int g_timeout = 0;
@@ -204,7 +220,7 @@ static int warm_open(u32 addr_be, int timeout_ms)
     return fd;
 }
 
-static i64 ping_once_warm(u32 addr_be, int timeout_ms)
+static i64 ping_once_warm_locked(u32 addr_be, int timeout_ms)
 {
     int fd = warm_open(addr_be, timeout_ms);
     if (fd < 0)
@@ -246,14 +262,26 @@ static i64 ping_once_warm(u32 addr_be, int timeout_ms)
     int ttl = 0;
     if (msg.controllen >= sizeof(struct cmsghdr_)) {
         struct cmsghdr_ *c = (struct cmsghdr_ *)ctl;
-        if (c->level == IPPROTO_IP_ && c->type == IP_TTL_)
+        if (c->len >= sizeof(struct cmsghdr_) + 1 &&
+            c->level == IPPROTO_IP_ && c->type == IP_TTL_)
             ttl = (int)ctl[sizeof(struct cmsghdr_)];
     }
     int rseq = ((int)buf[6] << 8) | buf[7];
+    if (rseq != (int)seq)
+        return -1; /* 不是本次请求的回复（上一包超时后迟到），丢弃 */
     i64 ms = t1 - t0;
     if (ms < 0)
         ms = 0;
     return ((ms & 0xffffffffLL) << 32) | ((i64)(ttl & 0xff) << 16) | (i64)(rseq & 0xffff);
+}
+
+static i64 ping_once_warm(u32 addr_be, int timeout_ms)
+{
+    if (!lock_try())
+        return -1; /* 另一线程正在采样：本样本回退，不做并发写入 */
+    i64 r = ping_once_warm_locked(addr_be, timeout_ms);
+    lock_rel();
+    return r;
 }
 
 long long Java_pingcore_Bridge_pingWarm(void *env, void *clazz, int addr_be, int timeout_ms)
