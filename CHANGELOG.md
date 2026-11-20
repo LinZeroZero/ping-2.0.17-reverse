@@ -19,6 +19,35 @@ MAJOR/MINOR/PATCH 语义。发布时打 tag `mod-N`，APK 作为 Release 附件�
 
 ## [Unreleased]
 
+## [mod-14] - 2026-11-21
+
+### Fixed
+
+- **so 加载失败（mod-13 的实质缺陷）**：给采样器加并发锁时用了 GCC 内建原子 `__atomic_test_and_set`，
+  GCC 为它生成辅助符号 `__aarch64_swp1_acq`，该符号由 **`libatomic`** 提供 —— 而 **Android 没有独立的 `libatomic.so`**。
+  结果：`dlopen` 直接失败（`cannot locate symbol "__aarch64_swp1_acq"`），`ok` 恒为 false，
+  每样本都白跑一次 native 调用后回退 exec。
+  改用 **`pthread_mutex_trylock`**（bionic 把 pthread 并进了 libc，零额外依赖）；
+  `pthread_mutex_t` 用 64 字节 union 包住（bionic 64 位上是 40 字节），宁大不小，避免结构体尺寸写错导致越界。
+- 恢复 `ok` 门控 —— 之前判断「该字段恒读为 false」是**误判**：它如实反映了 so 加载失败。修好 so 后门控恢复正常。
+
+### 关于 mod-13 的验证失误
+
+mod-13 曾报告「20 次采样 `ping` 子进程 0、`cutime +0`」，那次是**假阴性**：
+
+- so 加载失败 → 走 fallback exec → 每次 fork 的 `ping` 进程只活几十毫秒；
+- 而采样间隔是 1 秒 → 抓不到短命进程，`cutime` 窗口内也可能恰好没有样本。
+
+**教训**：判断「有没有 fork」不能只靠低频 `ps`，必须同时确认
+① `pingcore: loaded` 且无 `UnsatisfiedLinkError`；② 界面确实在出结果；③ 30 秒窗口的 `cutime/cstime`。
+
+### 实测（mod-14）
+
+- `logcat`：`pingcore: loaded`，无 `UnsatisfiedLinkError`；
+- 界面正常出结果（`ttl=107`、`time=361 ms`）；
+- 30 次采样中 `ping` 子进程 **0 次**，`cutime/cstime` 均 **+0**；
+- `versionCode=68` / `2.0.17-mod.14`。
+
 ## [mod-13] - 2026-11-20
 
 按「代码审查」技能的四阶段流程审了自己的改动层（`tools/pingcore.c` + 两个 pingcore smali + `scripts/build.sh`），
