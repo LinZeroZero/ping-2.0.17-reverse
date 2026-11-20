@@ -35,17 +35,17 @@ if [ "$GOT" != "$EXPECT_SHA" ]; then
   echo "  实际: $GOT"
   exit 1
 fi
-echo "[1/8] 源 APK 指纹校验通过"
+echo "[1/10] 源 APK 指纹校验通过"
 
 # 2) 解包
 mkdir -p "$OUTDIR" || exit 1
 rm -rf "$OUTDIR/apktool"
-echo "[2/8] 解包 -> $OUTDIR/apktool"
+echo "[2/10] 解包 -> $OUTDIR/apktool"
 java $JAVA_OPTS -jar "$APKTOOL_JAR" d -f -o "$OUTDIR/apktool" "$SRC" > "$OUTDIR/decode.log" 2>&1
 if [ $? -ne 0 ]; then echo "解包失败，日志: $OUTDIR/decode.log"; exit 1; fi
 
 # 3) 套补丁（覆盖式：patches/ 的路径与 apktool 解包树一致）
-echo "[3/8] 应用 patches/"
+echo "[3/10] 应用 patches/"
 cp -R "$HERE/patches/." "$OUTDIR/apktool/" || { echo "套补丁失败"; exit 1; }
 
 # 4) 修复 apktool 解包 Material 内联 vector 产生的 $ 资源名（aapt2 不接受 $）
@@ -54,7 +54,7 @@ cp -R "$HERE/patches/." "$OUTDIR/apktool/" || { echo "套补丁失败"; exit 1; 
 #    注意：只动 @type/$name 形式的引用，不能碰 %1$d / %1$s 这类格式化占位符。
 CNT=$(find "$OUTDIR/apktool/res" -name '*$*' -type f | wc -l | tr -d ' ')
 if [ "$CNT" -gt 0 ]; then
-  echo "[4/8] 修复 \$ 资源名（$CNT 个文件）"
+  echo "[4/10] 修复 \$ 资源名（$CNT 个文件）"
   grep -rl '@[a-zA-Z-]*/\$' "$OUTDIR/apktool/res" 2>/dev/null | while IFS= read -r f; do
     sed -i 's#@\([a-zA-Z-]*\)/\$#@\1/#g' "$f"
   done
@@ -62,38 +62,59 @@ if [ "$CNT" -gt 0 ]; then
     mv "$f" "$(dirname "$f")/$(basename "$f" | tr -d '$')"
   done
 else
-  echo "[4/8] 无需修复 \$ 资源名"
+  echo "[4/10] 无需修复 \$ 资源名"
 fi
 
 # 5) 抹掉原作者的 Google API key（Firebase 配置残留）
 #    mod-7 已关闭 Crashlytics / Analytics 收集，这个 key 对应的上报链路本来就不该被用到；
 #    留在改包版里只会随成品扩散原作者凭据（GitHub secret scanning 会告警）。
+
+# 6) 去掉 smali 里的 .line 调试信息（dex 体积约 -2.4 MB，仅影响崩溃行号）
+CNT=$(find "$OUTDIR/apktool/smali" "$OUTDIR/apktool/smali_classes2" -name '*.smali' | wc -l | tr -d ' ')
+find "$OUTDIR/apktool/smali" "$OUTDIR/apktool/smali_classes2" -name '*.smali' -exec sed -i '/^[[:space:]]*\.line /d' {} +
+echo "[6/10] 已去掉 .line（$CNT 个 smali）"
+
+# 7) 只保留 8 种界面语言与 arm64 ABI（其余语言/ABI 删除，减小 arsc 与 lib）
+for d in "$OUTDIR"/apktool/res/values-*; do
+  [ -d "$d" ] || continue
+  b=$(basename "$d")
+  case "$b" in
+    values-zh-rCN|values-de|values-es|values-in|values-it|values-pt|values-vi) continue;;
+  esac
+  echo "$b" | grep -qE '^values-[a-z]{2}(-r[A-Z]{2})?$' && rm -rf "$d"
+done
+for d in "$OUTDIR"/apktool/lib/*; do
+  [ -d "$d" ] || continue
+  [ "$(basename "$d")" = "arm64-v8a" ] || rm -rf "$d"
+done
+echo "[7/10] 精简完成（语言保留 8 种，ABI 保留 arm64-v8a）"
+
 #    STRIP_GOOGLE_KEYS=0 可关闭本步骤（保留原值，与原版行为完全一致）。
 if [ "${STRIP_GOOGLE_KEYS:-1}" = "1" ]; then
   KF="$OUTDIR/apktool/res/values/strings.xml"
   if [ -f "$KF" ]; then
     sed -i -e 's#<string name="google_api_key">[^<]*#<string name="google_api_key">#'            -e 's#<string name="google_crash_reporting_api_key">[^<]*#<string name="google_crash_reporting_api_key">#' "$KF"
     left=$(grep -c 'AIza' "$KF" 2>/dev/null || true)
-    echo "[5/8] 已抹掉 google_api_key（残留 AIza: ${left:-0} 处）"
+    echo "[5/10] 已抹掉 google_api_key（残留 AIza: ${left:-0} 处）"
   else
-    echo "[5/8] 找不到 values/strings.xml，跳过脱敏"
+    echo "[5/10] 找不到 values/strings.xml，跳过脱敏"
   fi
 else
-  echo "[5/8] 跳过 Google API key 脱敏（STRIP_GOOGLE_KEYS=0）"
+  echo "[5/10] 跳过 Google API key 脱敏（STRIP_GOOGLE_KEYS=0）"
 fi
 
-# 5) 回编
-echo "[6/8] 回编 -> $OUTDIR/unsigned.apk"
+# 8) 回编
+echo "[8/10] 回编 -> $OUTDIR/unsigned.apk"
 java $JAVA_OPTS -jar "$APKTOOL_JAR" b "$OUTDIR/apktool" -o "$OUTDIR/unsigned.apk" --aapt "$AAPT2" > "$OUTDIR/build.log" 2>&1
 if [ $? -ne 0 ]; then echo "回编失败，日志: $OUTDIR/build.log"; tail -20 "$OUTDIR/build.log"; exit 1; fi
 
-# 6) 对齐（manifest 是 extractNativeLibs=false，不对齐会 INSTALL_FAILED_INVALID_APK）
-echo "[7/8] zipalign"
+# 9) 对齐（manifest 是 extractNativeLibs=false，不对齐会 INSTALL_FAILED_INVALID_APK）
+echo "[9/10] zipalign"
 zipalign -p -f 4 "$OUTDIR/unsigned.apk" "$OUTDIR/aligned.apk" || { echo "zipalign 失败"; exit 1; }
 
-# 7) 签名（debug keystore，不存在就生成；没有 apksigner 时如实报未签名）
+# 10) 签名（debug keystore，不存在就生成；没有 apksigner 时如实报未签名）
 if ! command -v apksigner >/dev/null 2>&1; then
-  echo "[8/8] 未找到 apksigner —— 已产出未签名包"
+  echo "[10/10] 未找到 apksigner —— 已产出未签名包"
   echo "      $OUTDIR/aligned.apk"
   echo "      用 Android build-tools 的 apksigner，或 Operit 的 apk_reverse_sign 完成签名后再安装。"
   echo ""
@@ -109,7 +130,7 @@ if [ ! -f "$KEYSTORE" ]; then
     -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
     -dname "CN=Android Debug,O=Android,C=US" > /dev/null 2>&1 || { echo "keytool 失败"; exit 1; }
 fi
-echo "[8/8] 签名 -> $OUTDIR/ping_mod.apk"
+echo "[10/10] 签名 -> $OUTDIR/ping_mod.apk"
 apksigner sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android \
   --out "$OUTDIR/ping_mod.apk" "$OUTDIR/aligned.apk" || { echo "签名失败"; exit 1; }
 
