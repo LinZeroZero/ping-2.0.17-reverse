@@ -107,6 +107,10 @@ so 由 `tools/build-so.sh` 从 `tools/pingcore.c` 交叉编译（详见 [docs/pi
 
 ## [mod-9] - 2026-11-19
 
+> **该版本 Release 已下架（2026-11-20）**：其 APK 内含原作者的 Google API Key
+> （mod-10 起已抹除）。为避免继续扩散，已删除对应 Release 与 tag；
+> 补丁源码仍保留在本仓库历史中。
+
 ### Fixed
 
 - **默认语言真正跟随系统**。此前（mod-5 起）只替换了 `shared_prefs` 中 `preferred_locale` 的三处默认值，
@@ -138,6 +142,10 @@ so 由 `tools/build-so.sh` 从 `tools/pingcore.c` 交叉编译（详见 [docs/pi
   改包版由第三方重签名，崩溃堆栈与埋点会发往原作者项目，对作者无用、对使用者属越界流出。
 
 ## [mod-6] - 2026-11-08
+
+> **该版本 Release 已下架（2026-11-20）**：其 APK 内含原作者的 Google API Key
+> （mod-10 起已抹除）。为避免继续扩散，已删除对应 Release 与 tag；
+> 补丁源码仍保留在本仓库历史中。
 
 ### Added
 
@@ -202,10 +210,10 @@ so 由 `tools/build-so.sh` 从 `tools/pingcore.c` 交叉编译（详见 [docs/pi
 - 首个本地修改版：注入简体中文文案 + 裁剪菜单。
 
 [Unreleased]: https://github.com/LinZeroZero/ping-2.0.17-reverse/compare/mod-9...HEAD
-[mod-9]: https://github.com/LinZeroZero/ping-2.0.17-reverse/releases/tag/mod-9
+<!-- mod-9 Release 已下架（含原作者 API key），链接失效 -->
 [mod-8]: https://github.com/LinZeroZero/ping-2.0.17-reverse/releases/tag/mod-8
 [mod-7]: https://github.com/LinZeroZero/ping-2.0.17-reverse/releases/tag/mod-7
-[mod-6]: https://github.com/LinZeroZero/ping-2.0.17-reverse/releases/tag/mod-6
+<!-- mod-6 Release 已下架（含原作者 API key），链接失效 -->
 [mod-5]: https://github.com/LinZeroZero/ping-2.0.17-reverse/releases/tag/mod-5
 [mod-4]: https://github.com/LinZeroZero/ping-2.0.17-reverse/releases/tag/mod-4
 [mod-3]: https://github.com/LinZeroZero/ping-2.0.17-reverse/releases/tag/mod-3
