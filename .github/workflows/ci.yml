@@ -50,8 +50,13 @@ jobs:
           if find patches -type f -empty | grep -q .; then
             echo "存在空文件："; find patches -type f -empty; exit 1
           fi
-          if find patches -type f \( -name '*.apk' -o -name '*.dex' -o -name '*.arsc' -o -name '*.so' \) | grep -q .; then
-            echo "patches/ 里不允许出现二进制产物"; exit 1
+          # 允许 patches/lib/**/*.so：mod-11 的零 fork 采样器必须带一个 so
+          # （由 tools/build-so.sh 从 tools/pingcore.c 编译，可复现）
+          if find patches -type f \( -name '*.apk' -o -name '*.dex' -o -name '*.arsc' \) | grep -q .; then
+            echo "patches/ 里不允许出现 apk/dex/arsc"; exit 1
+          fi
+          if find patches -type f -name '*.so' ! -path 'patches/lib/*' | grep -q .; then
+            echo "so 只允许放在 patches/lib/ 下"; exit 1
           fi
           for f in patches/AndroidManifest.xml \
                    patches/smali/wg/a.smali \

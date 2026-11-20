@@ -58,6 +58,10 @@
 | `res/values/public.xml` | 登记两个新资源 ID |
 | `res/drawable/china_flag.xml` | **新增**：圆形中国国旗 |
 | `assets/privacy_zh.html` | **新增**：隐私政策中文译本 |
+| `smali/eh/a.smali` | `b()` 插入零 fork 快速路径、`a()` 记录 host（mod-11） |
+| `smali/pingcore/Bridge.smali` | **新增**：加载 so、调 JNI、拼 `ping` 等价文本 |
+| `smali/pingcore/FakeProcess.smali` | **新增**：伪 `Process`，把文本包成 stdout 流 |
+| `lib/arm64-v8a/libpingcore.so` | **新增**：C 采样器（67 KB），由 `tools/build-so.sh` 从 `tools/pingcore.c` 编译 |
 
 逐版说明见 [CHANGELOG.md](../CHANGELOG.md)，实现细节与踩坑见 [README](../README.md) 第九～十五节。
 

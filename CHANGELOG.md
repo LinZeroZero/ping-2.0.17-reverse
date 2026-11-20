@@ -19,6 +19,45 @@ MAJOR/MINOR/PATCH 语义。发布时打 tag `mod-N`，APK 作为 Release 附件�
 
 ## [Unreleased]
 
+## [mod-11] - 2026-11-20
+
+### Added
+
+- **零 fork 采样器**（C + JNI）：`lib/arm64-v8a/libpingcore.so`（67 KB）+ `smali/pingcore/{Bridge,FakeProcess}.smali`。
+  `Bridge.tryFast()` 在 `eh/a.b()` 入口接管采样：用 `SOCK_DGRAM + IPPROTO_ICMP` 发一个 echo，`recvmsg + IP_RECVTTL` 取 TTL，
+  再包一个 `FakeProcess` 返回与原 `ping` 输出同格式的文本，**上层解析代码一行未改**。
+  失败（IPv6、域名解析失败、socket 不可用）自动回退原 `Runtime.exec`。
+
+### Changed
+
+- 语言资源只保留 8 种：`en / de / es / in / it / pt / vi / zh-CN`（其余 78 个语言目录删除）。
+- 只保留 `arm64-v8a` 的 so（原 4 个 ABI）。
+
+### Removed
+
+- 删除 smali 里的 `.line` 调试信息（2,341,487 条，仅影响崩溃堆栈行号）。
+- manifest 删除 `MobileAdsInitProvider` 与 `com.google.android.gms.ads.APPLICATION_ID`：
+  广告 SDK 靠 Provider 自注册初始化（App 代码里没有任何 `MobileAds.initialize` 调用），
+  删掉这两行后 SDK 不再启动，**启动时不再拉起 Chromium 渲染进程**。
+
+### 实测（真机 vivo PD2338 / Android 16）
+
+| 指标 | mod-10 | mod-11 |
+|---|---|---|
+| 每秒采样子进程 CPU | 约 9.5 ms/样本（30 秒 285 ms） | **0**（30 秒 `cutime+cstime` 均 +0，`ping` 进程 0 次） |
+| APK 体积 | 7,552,870 B | **6,186,960 B（−18.1%）** |
+| `oat`（ART 编译产物） | 20 MB | **16 MB** |
+| 启动后 Chromium 进程 | 新增 1 个 | **不新增** |
+| Ping 进程 `webviewchromium` 映射 | 14 个 | **7 个** |
+| 功能 | — | ping/路由追踪/历史/我的 IP/8 语言切换/隐私政策 全部正常，无 FATAL |
+
+`time=` 为整数毫秒（如 `time=249 ms`）即证明走的是 JNI 采样器（真实 `ping` 输出带小数）。
+
+### 可复现性
+
+`scripts/build.sh` 现为 10 步：校验指纹 → 解包 → 套补丁 → 修 `$` 资源名 → 抹 Google key → **去 `.line`** → **语言/ABI 精简** → 回编 → 对齐 → 签名。
+so 由 `tools/build-so.sh` 从 `tools/pingcore.c` 交叉编译（详见 [docs/pingcore.md](docs/pingcore.md)）。
+
 ## [mod-10] - 2026-11-19
 
 ### Security
