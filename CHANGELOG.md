@@ -19,6 +19,67 @@ MAJOR/MINOR/PATCH 语义。发布时打 tag `mod-N`，APK 作为 Release 附件�
 
 ## [Unreleased]
 
+## [mod-15] - 2026-11-21
+
+本版是「零 fork 采样器」第一次**真正生效**的版本。之前 mod-11 ~ mod-14 报告的「省 CPU」都是假象：
+快速路径从未被调用过，每个样本依然在 fork 真 `ping`（详见下方「为什么一直没生效」）。
+
+### Fixed
+
+- **手写 smali 里三处条件码语义写反**（本版主因，错一个就全线回退）：
+  - `-t` 扫描写成 `if-nez`：`String.equals` 返回 0 表示「不相等」，`if-nez` 却在非 0 时跳。
+    结果第一个元素（`ping`）就判成「命中 -t」，`tryFast` 直接 `return null`，快速路径永不生效。
+    改为 `if-eqz`。
+  - host 判空写成 `if-nez`：host **非空**时反而跳去 `:fail_0`。改为 `if-eqz`。
+  - `cmp-long` 之后写成 `if-gez`：`cmp-long` 结果为负才表示失败，而 `if-gez` 是「>= 0 就跳」，
+    导致 **native 成功时被判为失败**。改为 `if-ltz`。
+- **`and-int/lit16 v, v, 0xffff` 的立即数是有符号的**，`0xffff` 被符号扩展成 `-1`，AND 之后等于没做 ——
+  实测打出了 `icmp_seq=3211273`（即 `(ttl<<16)|seq` 整个低 32 位）。改用 32 位常量寄存器掩码。
+- **输出形态与真 `ping` 不一致**，导致 App 逐条判丢包（库里 `packetReceivedCount=0`、`rttValues` 全 `-1`）：
+  - App 每个样本会**丢弃输出的第一行**（真 `ping` 第一行是 `PING ... bytes of data.` 表头）；
+  - App 靠输出里有没有 `packets` 这个词判定本轮收到包（真 `ping` 的统计区）。
+  现改为与真 `ping` 逐字同形：表头 + 结果行 + 空行 + `--- statistics ---` + `rtt min/avg/max/mdev`，
+  且 `time=` 带一位小数（如 `time=39.0 ms`）、`icmp_seq` 用真实序号。
+- **`Bridge.host` 改到 `e()` 归一化之后再写入**：之前存原始串，用户输入带首尾空格时
+  真 `ping` 能通、快速路径却静默回退。
+
+### Added
+
+- `tryFast` 新增**每进程只打一次**的回退原因日志（`PingCore.skip: <code>`），码值：
+  `0`=so 未加载 `2`=命令含 `-t` `3`=host 未记录 `4`=非 IPv4 `5`=native 返回 <0。
+  代价约每样本 5 条指令，但这类「静默回退」是本轮烧掉 5 次构建的根因。
+- native 侧一次性失败原因日志 `pingcore: warm <what> v=<errno>`（`sock`/`send`/`recv`/`seq`/`lock`/`ok`），
+  走 `__android_log_print` 而不是写文件 —— 写文件要 3 个系统调用且在锁内，与省 CPU 的目标相反。
+- `scripts/build.sh` 新增两个变量（都带回读校验，不匹配就构建失败）：
+  - `PKG_ID`：改包名，使改包版能与官方原版**共存**。注意组件类名必须保留旧包名
+    （类的字节码仍在旧包下，跟着改会变成「类不存在」，系统启动时直接取消，实测 `result code=-92`），
+    而自定义权限名/`package=`/provider 授权名必须跟着改。
+  - `APP_NAME`：改桌面显示名（7 个语言文件一起改）。
+- `tools/build-so.sh` 新增 `EXTRA_STUB`：需要额外链接 stub（如 `liblog.so`）时使用。
+
+### Changed
+
+- 共存版：包名 `com.lipinic.ping.mod`、显示名 `Ping (mod)`。
+
+### 实测（mod-15，目标 223.5.5.5，Android 16 / SM8550）
+
+- `logcat`：`pingcore: loaded` + `pingcore: warm ok v=51`，**无** `PingCore.skip`、无 `UnsatisfiedLinkError`；
+- 前台 15 秒密集采样 `/proc/<pid>/task/*/children`：**全程 0 个子进程**；`utime/stime` 仅 +0.48 s（界面重绘），
+  `cutime/cstime` **+0**；
+- App 自己的库（`ping_table`）：`packetSentCount=15 packetReceivedCount=15 avgTime=48.4`，
+  `rttValues` 为 15 个真实值（之前是 26 个 `-1.0`）；
+- 输出行：`64 bytes from 223.5.5.5: icmp_seq=1 ttl=49 time=51.0 ms`（与真 `ping` 同形）；
+- `versionCode=69` / `2.0.17-mod.15`。
+
+### 为什么一直没生效（教训）
+
+前三版把「界面 `time=` 有小数」当作走 exec 的证据，但校验手段本身有坑：
+
+1. **静态读代码看不出反向分支**。三处 `if-*` 读起来完全通顺，`apktool b` 也全绿，
+   只有运行期才暴露 —— 定位靠的是「native 打成功日志、Java 打回退日志，两侧结论互相矛盾」。
+2. **「三重证据」不够**。logcat 无异常 + 界面有数字 + 零子进程，三条全中，功能却是 100% 丢包。
+   必须去读 App 自己落库的数据（`ping_table` 的 `packetReceivedCount` / `rttValues`）。
+
 ## [mod-14] - 2026-11-21
 
 ### Fixed
