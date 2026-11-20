@@ -19,6 +19,38 @@ MAJOR/MINOR/PATCH 语义。发布时打 tag `mod-N`，APK 作为 Release 附件�
 
 ## [Unreleased]
 
+## [mod-13] - 2026-11-20
+
+按「代码审查」技能的四阶段流程审了自己的改动层（`tools/pingcore.c` + 两个 pingcore smali + `scripts/build.sh`），
+本版修掉审查出的问题。
+
+### Fixed
+
+- **`android.util.Log` 没有 `e(String, Throwable)` 这个两参数重载**（审查建议 #8 的落实写错了签名）。
+  它导致 `tryFast` 每次进 catch 都抛 `NoSuchMethodError: No static method e(Ljava/lang/String;Ljava/lang/Throwable;)I`，
+  把本该「回退 exec」的异常变成了新的崩溃，ping 完全不可用（界面上直接显示该错误）。
+  改为 `Log.e(tag, msg, throwable)`（三参数）与 `Log.e(tag, throwable.toString())`（两参数）。
+
+### Changed
+
+- `pingcore.c` 加固（审查 #1–#3）：
+  - **并发单飞锁**：`ping_once_warm` 的 fd/seq 是共享状态，两个线程同时采样会互收回复。
+    用 GCC 内建原子实现非阻塞 trylock，拿不到锁返回 −1 让调用方回退（不阻塞采样线程）；
+  - **回复 seq 校验**：超时后迟到的上一包不再被当成本次成功（此前会污染延迟数据）；
+  - **cmsg 长度校验**：读 TTL 前检查 `cmsg_len`，避免越界读；
+  - `int` 与 `sizeof` 的有符号比较修正。
+- `scripts/build.sh`（审查 #4–#5）：
+  - 改完 `versionCode` 后**回读 yml 与 manifest 校验**，不一致直接 `exit 1`（此前只改 yml 不生效，构建仍继续）；
+  - sed 模式从 `^  versionCode:` 放宽为 `^[[:space:]]*versionCode:`，不再依赖精确缩进。
+- `Bridge.smali`：移除 `ok` 静态字段门控（实测该字段在 `tryFast` 内恒读为 false，原因未查清），
+  改由 native 调用抛 `UnsatisfiedLinkError` 走同一层 catch，效果等价且可靠。
+
+### 实测
+
+- 20 次采样中 `ping` 子进程 **0 次**，`cutime/cstime` 均 **+0**（零 fork 仍成立）；
+- `time=` 为整数（`time=178 ms`）、`ttl=107` 正常，9 条结果齐全，无 FATAL；
+- `versionCode=67 / versionName=2.0.17-mod.13`，`pm install -r`（不带 `-d`）升级成功。
+
 ## [mod-12] - 2026-11-20
 
 ### Changed

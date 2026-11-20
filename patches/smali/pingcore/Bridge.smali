@@ -24,8 +24,11 @@
 
     :catch_0
     move-exception v1
+    # .locals 2 只有 v0/v1：用两参数 Log.e(String,String) + toString，避免碰 v2
     const-string v0, "PingCore"
-    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/Throwable;)I
+    invoke-virtual {v1}, Ljava/lang/Throwable;->toString()Ljava/lang/String;
+    move-result-object v1
+    invoke-static {v0, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
     const/4 v1, 0x0
     sput-boolean v1, Lpingcore/Bridge;->ok:Z
     return-void
@@ -38,6 +41,8 @@
     .locals 10
 
     :try_start_0
+    # 不读 ok 字段：实测这个静态字段在 tryFast 里恒读为 false（原因未查清），
+    # 改由 pingWarm 抛 UnsatisfiedLinkError 走 catch，效果等价且可靠。
     sget-object v1, Lpingcore/Bridge;->host:Ljava/lang/String;
     if-nez v1, :fail_0
 
@@ -115,6 +120,11 @@
 
     :catch_0
     move-exception v0
+    # 注意：android.util.Log 没有 e(String, Throwable) 这个两参数重载，
+    # 必须用三参数 e(String, String, Throwable)，否则这里自己抛 NoSuchMethodError。
+    const-string v1, "PingCore"
+    const-string v2, "tryFast failed"
+    invoke-static {v1, v2, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
     const/4 v0, 0x0
     return-object v0
 .end method

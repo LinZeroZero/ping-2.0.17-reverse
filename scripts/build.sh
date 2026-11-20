@@ -94,12 +94,19 @@ echo "[7/10] 精简完成（语言保留 8 种，ABI 保留 arm64-v8a）"
 MOD_N=${MOD_N:-0}
 if [ "$MOD_N" -gt 0 ] 2>/dev/null; then
   VC=$((54 + MOD_N))
-  sed -i "s/^  versionCode: .*/  versionCode: $VC/" "$OUTDIR/apktool/apktool.yml"
-  sed -i "s/^  versionName: .*/  versionName: 2.0.17-mod.$MOD_N/" "$OUTDIR/apktool/apktool.yml"
+  sed -i "s/^[[:space:]]*versionCode: .*/  versionCode: $VC/" "$OUTDIR/apktool/apktool.yml"
+  sed -i "s/^[[:space:]]*versionName: .*/  versionName: 2.0.17-mod.$MOD_N/" "$OUTDIR/apktool/apktool.yml"
   # manifest 里的值优先于 apktool.yml，两处都要改
   sed -i "s/android:versionCode=\"[0-9]*\"/android:versionCode=\"$VC\"/" "$OUTDIR/apktool/AndroidManifest.xml"
   sed -i "s/android:versionName=\"[^\"]*\"/android:versionName=\"2.0.17-mod.$MOD_N\"/" "$OUTDIR/apktool/AndroidManifest.xml"
-  echo "[7.5/10] 版本号 -> versionCode=$VC  versionName=2.0.17-mod.$MOD_N"
+  # 回读校验：sed 静默不匹配是真实踩过的坑（改完必须验，不能假设成功）
+  got_yml=$(grep -oE 'versionCode: *[0-9]+' "$OUTDIR/apktool/apktool.yml" | head -1 | tr -dc '0-9')
+  got_mf=$(grep -o 'android:versionCode="[0-9]*"' "$OUTDIR/apktool/AndroidManifest.xml" | head -1 | tr -dc '0-9')
+  if [ "$got_yml" != "$VC" ] || [ "$got_mf" != "$VC" ]; then
+    echo "错误：版本号未改成功（期望 $VC，apktool.yml=${got_yml:-空}，manifest=${got_mf:-空}）"
+    exit 1
+  fi
+  echo "[7.5/10] 版本号 -> versionCode=$VC（yml+manifest 已回读确认）  versionName=2.0.17-mod.$MOD_N"
 else
   echo "[7.5/10] 未设 MOD_N，保持上游版本号 54 / 2.0.17"
 fi
