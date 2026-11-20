@@ -193,6 +193,23 @@ static u32 g_addr = 0;
 static int g_timeout = 0;
 static u16 g_seq = 0;
 
+/* 一次性失败原因日志。
+ * 为什么不用写文件：open/write/close 是 3 个系统调用，而且会在持锁期间做 IO，
+ * 把省下来的 CPU 又还回去（mod-15 审查的阻断项）。
+ * 每进程只打一次：1 Hz 采样下重复打印会把 logcat 冲刷掉。 */
+extern int __android_log_print(int prio, const char *tag, const char *fmt, ...);
+extern int *__errno(void);
+
+static int g_note_done;
+
+static void note(const char *what, int v)
+{
+    if (g_note_done)
+        return;
+    g_note_done = 1;
+    __android_log_print(4, "pingcore", "warm %s v=%d", what, v);
+}
+
 static void build_probe(u8 *pkt, u16 seq)
 {
     int i;
@@ -235,8 +252,10 @@ static int warm_open(u32 addr_be, int timeout_ms)
 static i64 ping_once_warm_locked(u32 addr_be, int timeout_ms)
 {
     int fd = warm_open(addr_be, timeout_ms);
-    if (fd < 0)
+    if (fd < 0) {
+        note("sock", *__errno());
         return -1;
+    }
 
     u8 pkt[64];
     u16 seq = (u16)(++g_seq);
@@ -250,8 +269,10 @@ static i64 ping_once_warm_locked(u32 addr_be, int timeout_ms)
     sa.sin_addr = addr_be;
 
     i64 t0 = now_ms();
-    if (sendto(fd, pkt, 64, 0, &sa, sizeof(sa)) < 0)
+    if (sendto(fd, pkt, 64, 0, &sa, sizeof(sa)) < 0) {
+        note("send", *__errno());
         return -1;
+    }
 
     u8 buf[128];
     u8 ctl[64];
@@ -268,8 +289,10 @@ static i64 ping_once_warm_locked(u32 addr_be, int timeout_ms)
 
     long n = recvmsg(fd, &msg, 0);
     i64 t1 = now_ms();
-    if (n < 8)
+    if (n < 8) {
+        note("recv", (int)n);
         return -1;
+    }
 
     int ttl = 0;
     if (msg.controllen >= sizeof(struct cmsghdr_)) {
@@ -279,18 +302,23 @@ static i64 ping_once_warm_locked(u32 addr_be, int timeout_ms)
             ttl = (int)ctl[sizeof(struct cmsghdr_)];
     }
     int rseq = ((int)buf[6] << 8) | buf[7];
-    if (rseq != (int)seq)
-        return -1; /* 不是本次请求的回复（上一包超时后迟到），丢弃 */
+    if (rseq != (int)seq) {
+        note("seq", rseq);
+        return -1;
+    } /* 不是本次请求的回复（上一包超时后迟到），丢弃 */
     i64 ms = t1 - t0;
     if (ms < 0)
         ms = 0;
+    note("ok", (int)ms);
     return ((ms & 0xffffffffLL) << 32) | ((i64)(ttl & 0xff) << 16) | (i64)(rseq & 0xffff);
 }
 
 static i64 ping_once_warm(u32 addr_be, int timeout_ms)
 {
-    if (!lock_try())
+    if (!lock_try()) {
+        note("lock", 0);
         return -1; /* 另一线程正在采样：本样本回退，不做并发写入 */
+    }
     i64 r = ping_once_warm_locked(addr_be, timeout_ms);
     lock_rel();
     return r;

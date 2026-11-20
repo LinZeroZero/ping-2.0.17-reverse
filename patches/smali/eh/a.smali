@@ -51,12 +51,12 @@
 .method public static a(Ljava/lang/String;Ljava/lang/String;ZLjava/lang/Integer;)Ljava/util/ArrayList;
     .locals 3
 
-    # PINGCORE: 记录目标 host
-    sput-object p0, Lpingcore/Bridge;->host:Ljava/lang/String;
-
     invoke-static {p0}, Leh/a;->e(Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object p0
+
+    # PINGCORE: 记录目标 host —— 用 e() 归一化后的串，否则输入带首尾空格时快速路径静默回退
+    sput-object p0, Lpingcore/Bridge;->host:Ljava/lang/String;
 
     new-instance v0, Ljava/util/ArrayList;
 

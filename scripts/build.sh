@@ -125,6 +125,80 @@ else
   echo "[5/10] 跳过 Google API key 脱敏（STRIP_GOOGLE_KEYS=0）"
 fi
 
+# 7.6) 改包名：让改包版能和官方原版共存（不同包名 = 两个独立 App）
+#
+# 难点：manifest 里有两类「带包名的 android:name」，处理方式相反——
+#   a) 组件类名（application/activity/service/receiver/provider）：类的字节码仍在旧包名下，
+#      跟着改成新包会变成「类不存在」，系统启动时直接取消（实测 START_CANCELED，result code=-92）。
+#   b) 自定义权限名：全局唯一，必须跟着改，否则与原版同名会拿不到自己声明的权限。
+# 另加 package= 属性、provider 授权名、taskAffinity，这三类也要跟着改。
+PKG_ID=${PKG_ID:-}
+if [ -n "$PKG_ID" ]; then
+  MF="$OUTDIR/apktool/AndroidManifest.xml"
+  OLD_PKG=$(grep -oE 'package="[^"]*"' "$MF" | head -1 | sed 's/package="//; s/"$//')
+  if [ -z "$OLD_PKG" ]; then
+    echo "错误：读不到 manifest 的 package"
+    exit 1
+  fi
+  if [ "$OLD_PKG" != "$PKG_ID" ]; then
+    command -v python3 >/dev/null 2>&1 || { echo "错误：改包名需要 python3"; exit 1; }
+    python3 - "$MF" "$OLD_PKG" "$PKG_ID" <<'PY'
+import io, re, sys
+mf, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
+s = io.open(mf, encoding='utf-8').read()
+s = re.sub(
+    r'(<(?:application|activity|activity-alias|service|receiver|provider)\b[^>]*?android:name=")'
+    + re.escape(old) + r'\.',
+    lambda m: m.group(1) + '__CLS__.', s)
+s = s.replace(old + '.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION',
+              '__PERM__.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION')
+s = s.replace(old, new)
+s = s.replace('__CLS__.', old + '.').replace('__PERM__', new)
+io.open(mf, 'w', encoding='utf-8').write(s)
+PY
+    # 回读校验：三件事必须同时成立，否则宁可构建失败也别产出装上去会被取消的包
+    GOT_PKG=$(grep -oE 'package="[^"]*"' "$MF" | head -1 | sed 's/package="//; s/"$//')
+    GOT_APP=$(grep -o '<application[^>]*android:name="[^"]*"' "$MF" | grep -o 'android:name="[^"]*"' | head -1)
+    GOT_PERM=$(grep -oE 'android:name="[^"]*DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"' "$MF" | head -1)
+    if [ "$GOT_PKG" != "$PKG_ID" ]; then
+      echo "错误：package 未改成 $PKG_ID（实际 ${GOT_PKG:-空}）"; exit 1
+    fi
+    case "$GOT_APP" in
+      *"$OLD_PKG.application"*) ;;
+      *) echo "错误：application 类名被误改（$GOT_APP），会启动失败"; exit 1;;
+    esac
+    case "$GOT_PERM" in
+      *"$PKG_ID.DYNAMIC_RECEIVER"*) ;;
+      *) echo "错误：自定义权限名未跟着改（$GOT_PERM）"; exit 1;;
+    esac
+    echo "[7.6/10] 包名 -> $PKG_ID（组件类名保留 $OLD_PKG，权限名已改，三处回读确认）"
+  else
+    echo "[7.6/10] 包名已是 $PKG_ID，跳过"
+  fi
+else
+  echo "[7.6/10] 未设 PKG_ID，保持原包名（会和官方版冲突，不能共存）"
+fi
+
+# 7.7) 改显示名：共存时桌面上两个一样的「Ping」分不清，用 APP_NAME 给改包版加后缀。
+#      改的是 res/values*/strings.xml 里的 app_name，7 个语言文件一起改，避免换语言后又变回原名。
+APP_NAME=${APP_NAME:-}
+if [ -n "$APP_NAME" ]; then
+  N=0
+  for f in "$OUTDIR"/apktool/res/values*/strings.xml; do
+    [ -f "$f" ] || continue
+    grep -q 'name="app_name"' "$f" || continue
+    sed -i "s#<string name=\"app_name\">[^<]*</string>#<string name=\"app_name\">$APP_NAME</string>#" "$f"
+    N=$((N + 1))
+  done
+  GOT=$(grep -h -o '<string name="app_name">[^<]*' "$OUTDIR"/apktool/res/values*/strings.xml | sed 's/.*>//' | sort -u | tr '\n' ' ')
+  case "$GOT" in
+    *"$APP_NAME"*) echo "[7.7/10] 显示名 -> $APP_NAME（$N 个语言文件，回读：$GOT）" ;;
+    *) echo "错误：显示名未改成 $APP_NAME（回读：${GOT:-空}）"; exit 1;;
+  esac
+else
+  echo "[7.7/10] 未设 APP_NAME，保持原名"
+fi
+
 # 8) 回编
 echo "[8/10] 回编 -> $OUTDIR/unsigned.apk"
 java $JAVA_OPTS -jar "$APKTOOL_JAR" b "$OUTDIR/apktool" -o "$OUTDIR/unsigned.apk" --aapt "$AAPT2" > "$OUTDIR/build.log" 2>&1
