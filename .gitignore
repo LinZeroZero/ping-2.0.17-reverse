@@ -28,3 +28,6 @@ jadx/
 local.properties
 Thumbs.db
 .DS_Store
+
+# 设备原生库 stub（交叉编译用，不属源码）
+*.so.stub
