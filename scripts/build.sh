@@ -89,6 +89,21 @@ for d in "$OUTDIR"/apktool/lib/*; do
 done
 echo "[7/10] 精简完成（语言保留 8 种，ABI 保留 arm64-v8a）"
 
+# 7.5) 版本号：mod-N 递增 versionCode，versionName 带 -mod.N
+#      上游是 versionCode 54 / versionName 2.0.17；改包版不碰上游名，但要让系统能区分新旧
+MOD_N=${MOD_N:-0}
+if [ "$MOD_N" -gt 0 ] 2>/dev/null; then
+  VC=$((54 + MOD_N))
+  sed -i "s/^  versionCode: .*/  versionCode: $VC/" "$OUTDIR/apktool/apktool.yml"
+  sed -i "s/^  versionName: .*/  versionName: 2.0.17-mod.$MOD_N/" "$OUTDIR/apktool/apktool.yml"
+  # manifest 里的值优先于 apktool.yml，两处都要改
+  sed -i "s/android:versionCode=\"[0-9]*\"/android:versionCode=\"$VC\"/" "$OUTDIR/apktool/AndroidManifest.xml"
+  sed -i "s/android:versionName=\"[^\"]*\"/android:versionName=\"2.0.17-mod.$MOD_N\"/" "$OUTDIR/apktool/AndroidManifest.xml"
+  echo "[7.5/10] 版本号 -> versionCode=$VC  versionName=2.0.17-mod.$MOD_N"
+else
+  echo "[7.5/10] 未设 MOD_N，保持上游版本号 54 / 2.0.17"
+fi
+
 #    STRIP_GOOGLE_KEYS=0 可关闭本步骤（保留原值，与原版行为完全一致）。
 if [ "${STRIP_GOOGLE_KEYS:-1}" = "1" ]; then
   KF="$OUTDIR/apktool/res/values/strings.xml"

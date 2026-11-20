@@ -19,6 +19,28 @@ MAJOR/MINOR/PATCH 语义。发布时打 tag `mod-N`，APK 作为 Release 附件�
 
 ## [Unreleased]
 
+## [mod-12] - 2026-11-20
+
+### Changed
+
+- **版本号规范化**（对齐 Android 官方 `versionCode` / `versionName` 双字段设计）：
+
+  | 字段 | 之前 | 现在 |
+  |---|---|---|
+  | `versionCode` | 54（一直没变） | `54 + N`（mod-12 → **66**） |
+  | `versionName` | `2.0.17` | `2.0.17-mod.12` |
+
+  原因：`versionCode` 恒定 54 时，Android 无法区分 mod-10 与 mod-11（系统视角是同一版本），
+  覆盖安装一直靠 `pm install -d` 绕过降级保护。改后系统可自行判断新旧。
+
+- `scripts/build.sh` 新增第 7.5 步：按环境变量 `MOD_N` 同时改 `apktool.yml` 与
+  `AndroidManifest.xml`（manifest 里的值优先级更高，两处都要改）。
+
+### 实测
+
+`pm install -r`（**不带 `-d`**）从 mod-11（54）升级到 mod-12（66）：`Success`；
+`dumpsys package` 显示 `versionCode=66 versionName=2.0.17-mod.12`；启动正常、无 FATAL。
+
 ## [mod-11] - 2026-11-20
 
 ### Added
