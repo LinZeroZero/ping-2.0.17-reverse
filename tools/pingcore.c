@@ -162,18 +162,30 @@ static i64 ping_once(u32 addr_be, int timeout_ms)
  * 这也是 App 里实际要用的形态：host 不变就一直复用同一个 fd。
  */
 /* 单飞锁。Bridge.pingWarm 可能被多线程调用，而 fd / seq 是共享状态：
- * 两个线程同时 send/recv 会互收对方的回复。用 GCC 内建原子（不依赖 pthread，
- * -nostdlib 下也可用）；拿不到锁直接返回 -1，让调用方回退 exec。 */
-static volatile int g_busy = 0;
+ * 两个线程同时 send/recv 会互收对方的回复。拿不到锁返回 -1，让调用方回退 exec。
+ *
+ * 为什么不用 __atomic_*：GCC 的原子内建会生成 __aarch64_swp1_acq 之类的辅助符号，
+ * 它由 libatomic 提供，而 Android 没有独立的 libatomic.so —— dlopen 会直接失败
+ * （实测：cannot locate symbol “__aarch64_swp1_acq”）。bionic 把 pthread 并进了 libc，
+ * 所以用 pthread_mutex_trylock 才是零额外依赖的选择。
+ *
+ * 类型声明：bionic 的 pthread_mutex_t 在 64 位上是 40 字节（10 个 int）；
+ * 这里用 64 字节 union 包住，宁大不小，避免结构体尺寸写错导致越界。
+ * 静态零初始化等价于 PTHREAD_MUTEX_INITIALIZER。 */
+typedef union { char pad[64]; long align; } pc_mutex_t;
+extern int pthread_mutex_trylock(pc_mutex_t *);
+extern int pthread_mutex_unlock(pc_mutex_t *);
+
+static pc_mutex_t g_mtx;
 
 static int lock_try(void)
 {
-    return __atomic_test_and_set(&g_busy, __ATOMIC_ACQUIRE) ? 0 : 1;
+    return pthread_mutex_trylock(&g_mtx) == 0;
 }
 
 static void lock_rel(void)
 {
-    __atomic_clear(&g_busy, __ATOMIC_RELEASE);
+    pthread_mutex_unlock(&g_mtx);
 }
 
 static int g_fd = -1;

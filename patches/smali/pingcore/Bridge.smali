@@ -41,8 +41,12 @@
     .locals 10
 
     :try_start_0
-    # 不读 ok 字段：实测这个静态字段在 tryFast 里恒读为 false（原因未查清），
-    # 改由 pingWarm 抛 UnsatisfiedLinkError 走 catch，效果等价且可靠。
+    # so 没加载成功就直接回退（ok 由 clinit 在 loadLibrary 成功后置 true）。
+    # 注意：不要在 so 里用 __atomic_* —— 那会引入 libatomic 的符号，Android 没有这个 so，
+    # dlopen 会失败、ok 恒为 false，于是每样本都白跑一次 native 调用。
+    sget-boolean v0, Lpingcore/Bridge;->ok:Z
+    if-eqz v0, :fail_0
+
     sget-object v1, Lpingcore/Bridge;->host:Ljava/lang/String;
     if-nez v1, :fail_0
 
