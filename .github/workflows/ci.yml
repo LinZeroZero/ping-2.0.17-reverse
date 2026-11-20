@@ -132,7 +132,7 @@ jobs:
           echo "3ab9399343184ca26f9da25260067f65d6221c4987349e3f4bdd80ef59cc4a34  classes2.dex" >> /tmp/want
           sha256sum -c /tmp/want
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ping-mod-unsigned
           path: build/out/aligned.apk
