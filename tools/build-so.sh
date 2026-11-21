@@ -21,8 +21,12 @@ EXTRA_STUB=${EXTRA_STUB:-}
 [ -f "$LIBC" ] || { echo "找不到 libc stub：请先 cp /system/lib64/libc.so ./libc.so.stub"; exit 1; }
 
 mkdir -p "$(dirname "$OUT")"
+# --no-undefined：链接期必须把所有引用符号都解析掉，否则直接报 undefined reference。
+# 这一道闸门是为 mod-13 那次事故加的：当时用了 __atomic_test_and_set，GCC 生成辅助符号
+# __aarch64_swp1_acq（由 libatomic 提供，而 Android 没有独立 libatomic.so），
+# 链接期完全沉默，装到手机上 dlopen 才失败。有这道闸门，构建时就红。
 aarch64-linux-gnu-gcc -shared -fPIC -nostdlib -fno-stack-protector \
-  -Wl,-soname,libpingcore.so -o "$OUT" "$SRC" "$LIBC" $EXTRA_STUB || exit 1
+  -Wl,-soname,libpingcore.so -Wl,--no-undefined -o "$OUT" "$SRC" "$LIBC" $EXTRA_STUB || exit 1
 aarch64-linux-gnu-strip --strip-unneeded "$OUT" || exit 1
 
 echo "产物: $OUT"
