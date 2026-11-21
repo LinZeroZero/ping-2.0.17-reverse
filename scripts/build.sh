@@ -208,9 +208,29 @@ echo "[8/10] 回编 -> $OUTDIR/unsigned.apk"
 java $JAVA_OPTS -jar "$APKTOOL_JAR" b "$OUTDIR/apktool" -o "$OUTDIR/unsigned.apk" --aapt "$AAPT2" > "$OUTDIR/build.log" 2>&1
 if [ $? -ne 0 ]; then echo "回编失败，日志: $OUTDIR/build.log"; tail -20 "$OUTDIR/build.log"; exit 1; fi
 
+# 8.1) so 入包断言：回编"成功"不等于 so 真的进了包（lib 目录缺失时 apktool 不报错，
+#      也可能误用 patches/ 之外的旧副本）。比对包内 so 与仓库内 so 的字节数，
+#      不一致当场失败 —— 否则要装到手机上、看到 pingcore 没加载才发现。
+SO_REPO=patches/lib/arm64-v8a/libpingcore.so
+if [ -f "$SO_REPO" ]; then
+  SO_WANT=$(wc -c < "$SO_REPO" | tr -d ' ')
+  SO_GOT=$(unzip -l "$OUTDIR/unsigned.apk" 'lib/arm64-v8a/libpingcore.so' 2>/dev/null \
+           | awk '/lib\/arm64-v8a\/libpingcore.so/{print $1; exit}')
+  if [ "$SO_GOT" != "$SO_WANT" ]; then
+    echo "错误：so 未正确入包（仓库 ${SO_WANT} B，包内 ${SO_GOT:-缺失} B）"
+    unzip -l "$OUTDIR/unsigned.apk" | grep 'lib/' | head -5
+    exit 1
+  fi
+  echo "[8.1/10] so 入包确认：lib/arm64-v8a/libpingcore.so ${SO_GOT} B"
+fi
+
 # 9) 对齐（manifest 是 extractNativeLibs=false，不对齐会 INSTALL_FAILED_INVALID_APK）
 echo "[9/10] zipalign"
 zipalign -p -f 4 "$OUTDIR/unsigned.apk" "$OUTDIR/aligned.apk" || { echo "zipalign 失败"; exit 1; }
+# 9.1) 对齐复验：zipalign 返回 0 也不保证产物真对齐（版本/参数差异），用 -c 复验一遍。
+#      extractNativeLibs=false 的包一旦没对齐，装机会直接 INSTALL_FAILED_INVALID_APK。
+zipalign -c -p 4 "$OUTDIR/aligned.apk" > /dev/null 2>&1 || { echo "错误：aligned.apk 对齐复验失败"; exit 1; }
+echo "[9.1/10] 对齐复验通过（zipalign -c -p 4）"
 
 # 10) 签名（debug keystore，不存在就生成；没有 apksigner 时如实报未签名）
 if ! command -v apksigner >/dev/null 2>&1; then
@@ -233,6 +253,16 @@ fi
 echo "[10/10] 签名 -> $OUTDIR/ping_mod.apk"
 apksigner sign --ks "$KEYSTORE" --ks-pass pass:android --key-pass pass:android \
   --out "$OUTDIR/ping_mod.apk" "$OUTDIR/aligned.apk" || { echo "签名失败"; exit 1; }
+
+# 10.1) 签名复验：签完不验等于没签（ks 路径写错、口令不对都可能产出"看起来正常"的包）。
+#      装不上再回头查的代价远高于这里多跑一次 verify。
+if apksigner verify --print-certs "$OUTDIR/ping_mod.apk" > "$OUTDIR/verify.log" 2>&1; then
+  echo "[10.1/10] 签名复验通过：$(grep -m1 'Signer #1 certificate DN' "$OUTDIR/verify.log" | sed 's/^[[:space:]]*//')"
+else
+  echo "错误：签名复验失败"
+  tail -10 "$OUTDIR/verify.log"
+  exit 1
+fi
 
 echo ""
 echo "完成: $OUTDIR/ping_mod.apk"
