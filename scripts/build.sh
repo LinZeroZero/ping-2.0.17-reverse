@@ -75,13 +75,17 @@ find "$OUTDIR/apktool/smali" "$OUTDIR/apktool/smali_classes2" -name '*.smali' -e
 echo "[6/10] 已去掉 .line（$CNT 个 smali）"
 
 # 7) 只保留 8 种界面语言与 arm64 ABI（其余语言/ABI 删除，减小 arsc 与 lib）
+#    语言目录有两种命名：老式 values-<ll>[-r<CC>]（values-fr、values-pt-rBR），
+#    和 BCP-47 的 values-b+<subtag>[+<subtag>]（values-b+es+419、values-b+sr+Latn）。
+#    旧正则只覆盖前一种，后一种会漏删 —— 漏删不会报错，只是 arsc 偏大、
+#    语言列表里留着永远用不到的项，所以这里两种都要匹配。
 for d in "$OUTDIR"/apktool/res/values-*; do
   [ -d "$d" ] || continue
   b=$(basename "$d")
   case "$b" in
     values-zh-rCN|values-de|values-es|values-in|values-it|values-pt|values-vi) continue;;
   esac
-  echo "$b" | grep -qE '^values-[a-z]{2}(-r[A-Z]{2})?$' && rm -rf "$d"
+  echo "$b" | grep -qE '^values-([a-z]{2}(-r[A-Z]{2})?|b\+[a-z]{2,3}(\+[A-Za-z0-9]+)*)$' && rm -rf "$d"
 done
 for d in "$OUTDIR"/apktool/lib/*; do
   [ -d "$d" ] || continue
